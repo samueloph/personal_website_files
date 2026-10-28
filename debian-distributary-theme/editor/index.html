@@ -1,0 +1,1724 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fork your own wallpaper · Distributary</title>
+<meta name="description" content="Fork your own Distributary wallpaper: recolour the river in your browser or randomize a variation of your own, download it, and build it into a whole Debian theme.">
+<link rel="canonical" href="https://samueloph.dev/personal_website_files/debian-distributary-theme/editor/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Fork your own wallpaper · Distributary">
+<meta property="og:description" content="Fork your own Distributary wallpaper: recolour the river in your browser or randomize a variation of your own, download it, and build it into a whole Debian theme.">
+<meta property="og:url" content="https://samueloph.dev/personal_website_files/debian-distributary-theme/editor/">
+<meta property="og:image" content="https://samueloph.dev/personal_website_files/debian-distributary-theme/img/hero-dark.jpg">
+<meta property="og:image:width" content="2400">
+<meta property="og:image:height" content="1350">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Source+Sans+3:wght@400;600&family=Spectral:ital,wght@1,300;1,400&display=swap">
+<style>
+  /* The chrome is deliberately neutral grey, in both themes: colours are
+     judged against it, and a tinted surround would shift how they read. */
+  :root {
+    color-scheme: dark;
+    --ground: #131313;
+    --panel: #1b1b1b;
+    --raised: #252525;
+    --ink: #ececec;
+    --muted: #a3a3a3;
+    --line: rgba(255, 255, 255, 0.10);
+    --line-strong: rgba(255, 255, 255, 0.24);
+    --on: #ececec;
+    --on-ink: #131313;
+    --display: "Spectral", Georgia, "Times New Roman", serif;
+    --body: "Source Sans 3", "Source Sans Pro", "Segoe UI", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "DejaVu Sans Mono", monospace;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      color-scheme: light;
+      --ground: #ebebeb; --panel: #f6f6f6; --raised: #ffffff; --ink: #171717; --muted: #575757;
+      --line: rgba(0, 0, 0, 0.10); --line-strong: rgba(0, 0, 0, 0.26); --on: #171717; --on-ink: #f6f6f6;
+    }
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --ground: #ebebeb; --panel: #f6f6f6; --raised: #ffffff; --ink: #171717; --muted: #575757;
+    --line: rgba(0, 0, 0, 0.10); --line-strong: rgba(0, 0, 0, 0.26); --on: #171717; --on-ink: #f6f6f6;
+  }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font: 15px/1.5 var(--body);
+    padding-inline: 16px;
+    padding-block: 0 48px;
+  }
+  h1, h2, h3, p { margin: 0; }
+  a { color: var(--ink); text-underline-offset: 3px; }
+  button, input, select { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--on); outline-offset: 2px; }
+  code { font-family: var(--mono); font-size: .9em; }
+
+  .top { max-width: 1600px; margin-inline: auto; padding-block: 20px 14px; display: flex; flex-wrap: wrap;
+         align-items: baseline; justify-content: space-between; gap: 6px 24px; }
+  .top h1 { font: italic 300 clamp(28px, 3.4vw, 40px)/1.1 var(--display); text-wrap: balance; }
+  .top h1 span { font: 500 12px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted);
+                 font-style: normal; display: block; margin-bottom: 6px; }
+  .top h1 span a { color: var(--muted); }
+  select { border: 1px solid var(--line-strong); background: var(--raised); border-radius: 6px; padding: 5px 8px; }
+  .top p { color: var(--muted); max-width: 62ch; }
+
+  .layout { max-width: 1600px; margin-inline: auto; display: grid; grid-template-columns: minmax(0, 1fr) 380px;
+            gap: 24px; align-items: start; }
+  @media (max-width: 1000px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+  /* where Use it is: the sidebar on the right, or below the picture on narrow screens */
+  .side-below { display: none; }
+  @media (max-width: 1000px) { .side-right { display: none; } .side-below { display: inline; } }
+
+  /* the picture stays in view while the controls scroll */
+  .stage-col { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 2; background: var(--ground);
+               display: grid; gap: 12px; padding-block: 4px 12px; }
+  .stage { position: relative; aspect-ratio: var(--aspect, 16 / 9); max-width: 100%; background: #000; border-radius: 3px;
+           overflow: hidden; margin-inline: auto;
+           /* short windows: room for the buttons and the note under it, all pinned */
+           width: min(100%, calc(72vh * var(--aspect, 16 / 9)), calc((100vh - 230px) * var(--aspect, 16 / 9))); }
+  .stage canvas, .stage svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .stage svg { pointer-events: none; }
+  .stage .notice { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center;
+                   color: #ececec; background: #131313; }
+  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+  .facts { font: 13px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; margin-left: auto; }
+
+  .seg { display: inline-flex; padding: 3px; gap: 2px; border: 1px solid var(--line-strong); border-radius: 999px; }
+  .seg button { border: 0; background: transparent; padding: 5px 14px; border-radius: 999px; cursor: pointer;
+                font-weight: 600; }
+  .seg button[aria-pressed="true"] { background: var(--on); color: var(--on-ink); }
+  .btn { border: 1px solid var(--line-strong); background: var(--raised); border-radius: 6px; padding: 6px 12px;
+         cursor: pointer; font-weight: 600; }
+  .btn:hover { border-color: var(--ink); }
+  .btn[disabled] { opacity: .45; cursor: default; }
+  .btn .die { width: 18px; height: 18px; vertical-align: -4px; margin-right: 7px; }
+
+  .presets { display: grid; gap: 8px; }
+  .presets h2, .panel h2 { font: 500 12px var(--mono); letter-spacing: .12em; text-transform: uppercase;
+                           color: var(--muted); }
+  .chips { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; }
+  .chip { display: grid; gap: 5px; align-content: start; padding: 0; border: 0; background: none; color: var(--ink);
+          font: 600 13px var(--body); text-align: left; cursor: pointer; }
+  .chip .sw { display: block; aspect-ratio: 16 / 9; border-radius: 4px; overflow: hidden;
+              outline: 1px solid var(--line-strong); outline-offset: -1px; }
+  .chip .sw img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .chip:hover .sw { outline-color: var(--muted); }
+  .chip[aria-pressed="true"] .sw { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .chip[aria-pressed="true"] > span:last-child { text-decoration: underline; text-underline-offset: 4px; }
+  .status { font-size: 13.5px; color: var(--muted); min-height: 1.5em; }
+
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 16px;
+           display: grid; gap: 22px; }
+  .group { display: grid; gap: 10px; }
+  .group > p { color: var(--muted); font-size: 13.5px; }
+  .row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 12px; }
+  .row label { font-size: 14px; }
+  .row.range { grid-template-columns: minmax(0, 1fr) 58px; }
+  .row.range label { grid-column: 1 / -1; }
+  .row output { font: 12.5px var(--mono); color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+  input[type="range"] { width: 100%; accent-color: var(--on); margin: 0; }
+  input[type="color"] { width: 44px; height: 28px; padding: 0 2px; border: 1px solid var(--line-strong);
+                        border-radius: 5px; background: var(--raised); cursor: pointer; }
+  input[type="checkbox"] { accent-color: var(--on); width: 18px; height: 18px; }
+  .stop { display: grid; grid-template-columns: 44px minmax(0, 1fr) 46px; gap: 10px; align-items: center; }
+  .stop span { font-size: 13.5px; }
+  .stop output { font: 12.5px var(--mono); color: var(--muted); text-align: right; }
+  .stop.far { opacity: .5; }
+  .muted { color: var(--muted); }
+  .hidden { display: none !important; }
+
+  .actions { display: grid; gap: 12px; }
+  .actions .line { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .actions input[type="text"] { flex: 1 1 160px; min-width: 0; border: 1px solid var(--line-strong); background: var(--raised);
+                                border-radius: 6px; padding: 6px 10px; }
+  details summary { cursor: pointer; font-weight: 600; }
+  .actions h3 { font: 600 14px var(--body); margin-top: 6px; }
+  #build { white-space: pre-wrap; overflow-wrap: anywhere; }     /* every command in view, copied as written */
+  pre { margin: 8px 0 0; max-height: 280px; overflow: auto; padding: 12px; background: var(--raised);
+        border: 1px solid var(--line); border-radius: 6px; font: 12px/1.5 var(--mono); }
+
+  /* test mode (#test-<option>-<dark|light>[-WxH]): only the picture, one
+     pixel per CSS pixel, for comparing with the Python renders */
+  body.test { padding: 0; overflow: hidden; }
+  body.test .top, body.test .bar, body.test .presets, body.test .panel { display: none; }
+  body.test .layout, body.test .stage-col { display: block; padding: 0; max-width: none; }
+  body.test .stage { border-radius: 0; }
+  /* on small screens only the picture stays in view while the controls scroll */
+  @media (max-width: 700px) {
+    .stage-col { display: contents; }
+    .stage { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 2;
+             width: min(100%, calc(42vh * var(--aspect, 16 / 9))); }
+    .layout { gap: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <h1><span><a href="../index.html?v=80865e578f">← Distributary</a></span>Fork your own wallpaper</h1>
+  <p>Press Randomize for a variation of your own, or set every colour by hand. This palette editor redraws the river
+    as you go: its shape stays fixed (seed <span id="seed">6</span>), and every control changes colour, light or the logo,
+    the same inputs the program uses to build the whole theme.</p>
+</header>
+
+<main class="layout">
+  <section class="stage-col" aria-label="Preview">
+    <div class="stage" id="stage">
+      <canvas id="view" aria-label="Preview of the wallpaper with the current palette"></canvas>
+      <svg id="logo" viewBox="0 0 1920 1080" preserveAspectRatio="none" aria-hidden="true"></svg>
+      <div class="notice hidden" id="nogl">This editor draws with WebGL 2, which this browser does not provide.</div>
+    </div>
+    <div class="bar">
+      <div class="seg" role="group" aria-label="Dark or light">
+        <button type="button" id="mode-dark" data-mode="dark" aria-pressed="true">Dark</button>
+        <button type="button" id="mode-light" data-mode="light" aria-pressed="false">Light</button>
+      </div>
+      <button type="button" class="btn" id="compare" title="Shows the palette you started from while held">Hold to compare</button>
+      <button type="button" class="btn" id="reset">Reset</button>
+      <label class="muted" for="res" style="font-size:13.5px">Size</label>
+      <select id="res"></select>
+      <button type="button" class="btn" id="save-wallpaper" title="The wallpaper as shown, logo included, as debian-distributary-theme.png">Download wallpaper</button>
+      <span class="facts" id="facts"></span>
+    </div>
+    <div class="bar">
+      <button type="button" class="btn" id="rand-all" title="New colours and new parameters, for dark and light"><svg class="die" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4.5" fill="none" stroke="currentColor" stroke-width="2"/><g fill="currentColor"><circle cx="8.4" cy="8.4" r="1.7"/><circle cx="15.6" cy="8.4" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="8.4" cy="15.6" r="1.7"/><circle cx="15.6" cy="15.6" r="1.7"/></g></svg>Randomize</button>
+      <button type="button" class="btn" id="rand-colours" title="New colours for both versions; the accent's place and reach, and the glow, stay as they are">Randomize colours</button>
+      <button type="button" class="btn" id="rand-params" title="A new place and reach for the accent, and new glow, channel and contour settings; the colours stay">Randomize parameters</button>
+      <button type="button" class="btn" id="rand-back" disabled title="Back to the palette before the last Randomize (up to five steps)">← Previous</button>
+    </div>
+    <p class="muted" style="font-size:13.5px">Randomize changes the colours and the light, but not the river itself.
+      To generate a different river structure, build the wallpaper on your computer with another seed: see
+      <a href="#use-it" id="to-use-it">Use it<span class="side-right">, in the sidebar on the right</span><span class="side-below">,
+      further down the page</span></a>.</p>
+  </section>
+
+  <aside class="panel" aria-label="Palette controls">
+    <div class="presets">
+      <h2 id="presets-h">Start from</h2>
+      <div class="chips" id="presets" role="group" aria-labelledby="presets-h"></div>
+      <div class="hidden" id="saved-wrap">
+        <h2 id="saved-h" style="margin-top:6px">Saved here</h2>
+        <div class="chips" id="saved" role="group" aria-labelledby="saved-h"></div>
+      </div>
+    </div>
+    <div id="controls" style="display:grid;gap:22px"></div>
+
+    <div class="group actions" id="use-it">
+      <h2>Use it</h2>
+      <p class="muted" style="font-size:13.5px">The picture here is a preview your browser draws, and Download
+        wallpaper saves it as a PNG. For every size at full resolution, HDR and the whole theme, download the
+        palette and build it with the program on your computer.</p>
+      <div class="line">
+        <input type="text" id="save-name" placeholder="Name, e.g. forest-warm" autocomplete="off" spellcheck="false" aria-label="Palette name">
+      </div>
+      <div class="line">
+        <button type="button" class="btn hidden" id="save">Save here</button>
+        <button type="button" class="btn" id="copy">Copy JSON</button>
+        <button type="button" class="btn" id="download">Download palette</button>
+        <button type="button" class="btn hidden" id="delete">Delete saved</button>
+      </div>
+      <p class="status" id="status" role="status"></p>
+      <h3>Make the wallpapers on your computer</h3>
+      <p class="muted" style="font-size:13.5px">On any Debian system, from the palette you downloaded:</p>
+      <pre id="build" tabindex="0" aria-label="Commands that make the wallpapers from this palette"></pre>
+      <p class="muted" id="build-note" style="font-size:13.5px"></p>
+      <p class="muted" style="font-size:13.5px">The program's source is on
+        <a href="https://salsa.debian.org/samueloph/distributary">Salsa</a> and
+        <a href="https://github.com/samueloph/distributary">GitHub</a>.</p>
+      <details>
+        <summary>Show the JSON</summary>
+        <pre id="json" tabindex="0"></pre>
+      </details>
+    </div>
+  </aside>
+</main>
+
+<script src="data/river.js?v=80865e578f"></script>
+<script>
+(function () {
+  "use strict";
+  const DATA = window.DISTRIBUTARY;
+  const $ = (id) => document.getElementById(id);
+
+  // ---------------------------------------------------------------- colour
+  function srgbToLin(c) { return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }
+  function hexLin(h) {
+    h = h.replace("#", "");
+    return [0, 2, 4].map((i) => srgbToLin(parseInt(h.slice(i, i + 2), 16) / 255));
+  }
+  const clone = (o) => JSON.parse(JSON.stringify(o));
+  const slug = (s) => (s || "").toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
+
+  // ---------------------------------------------------------------- shaders
+  const COMMON = `
+precision highp float;
+precision highp int;
+uniform vec2 uRes;
+uniform vec2 uHalf;         // the frame's half width and height, in world units
+uniform vec2 uCenter;       // its centre, along the screen's axes (View.cx, cy)
+uniform int uTurn;          // 1 on portraits: world x (downstream) runs down the screen
+uniform vec2 uGlint;
+uniform vec2 uGlintR;
+uniform int uNW;
+uniform float uWD[8];
+uniform vec3 uWC[8];
+uniform float uKnee;
+uniform int uFade;
+uniform vec3 uPaper;
+uniform int uTintOn;
+uniform vec3 uTintC;
+uniform vec2 uTintS;
+uniform float uFloor;
+uniform float uGamma;
+uniform float uRoot;
+const vec3 LUMA = vec3(0.2126, 0.7152, 0.0722);
+float pxPerUnit() { return uRes.y / (2.0 * uHalf.y); }
+vec2 worldAt(vec2 frag) {
+  float s = pxPerUnit();
+  vec2 q = vec2(frag.x / s - uHalf.x, (uRes.y - frag.y) / s - uHalf.y) + uCenter;
+  return uTurn == 1 ? vec2(q.y, -q.x) : q;
+}
+vec2 turned(vec2 d) { return uTurn == 1 ? vec2(-d.y, d.x) : d; }
+vec2 toPx(vec2 p) { return (turned(p) - uCenter + uHalf) * pxPerUnit(); }    // from the top left
+vec3 rampAt(float d) {
+  if (d <= uWD[0]) return uWC[0];
+  for (int i = 1; i < 8; i++) {
+    if (i >= uNW) break;
+    if (d <= uWD[i]) return mix(uWC[i - 1], uWC[i], (d - uWD[i - 1]) / max(uWD[i] - uWD[i - 1], 1e-6));
+  }
+  return uWC[uNW - 1];
+}
+vec3 waterAt(vec2 p) { return rampAt(length((p - uGlint) / uGlintR)); }
+vec3 tinted(vec3 w, float t) {
+  if (uTintOn == 0) return w;
+  vec3 a = sqrt(max(w, 0.0));
+  vec3 m = a + (sqrt(uTintC) - a) * t;
+  return m * m;
+}
+float tintAt(float s) {
+  if (uTintOn == 0) return 0.0;
+  float t = clamp((uTintS.y - s) / max(uTintS.y - uTintS.x, 1e-4), 0.0, 1.0);
+  return t * t * (3.0 - 2.0 * t);
+}
+vec3 shade(vec3 c, float v) { return uFade == 1 ? uPaper + (c - uPaper) * v : c * v; }
+float vw(float w) { return max(uFloor, pow(max(w / uRoot, 1e-6), uGamma)); }
+vec3 tonemap(vec3 c) {
+  float L = dot(c, LUMA);
+  float Lc = max(L, 1e-8);
+  float span = max(1.0 - uKnee, 1e-4);
+  float Lm = Lc > uKnee ? uKnee + span * tanh((Lc - uKnee) / span) : Lc;
+  vec3 o = c * (Lm / Lc);
+  float mx = max(o.r, max(o.g, o.b));
+  float over = clamp((mx - 1.0) / max(mx - Lm, 1e-6), 0.0, 1.0);
+  o = o + (vec3(Lm) - o) * over;
+  return clamp(o, 0.0, 1.0);
+}
+vec3 toSrgb(vec3 c) {
+  c = max(c, 0.0);
+  return mix(12.92 * c, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c));
+}
+// the SVG's channels and contours take their colour from radial gradients of
+// GRADIENT_STOPS stops (svgout.py), blended in sRGB between them; drawn the
+// same way here, a sharp turn in the water's colours looks as the build has it
+const float GRADIENT_STOPS = 20.0;
+vec3 gradientAt(vec2 p, float t, float v) {
+  float dmax = max(uWD[uNW - 1], 1e-6);
+  float u = clamp(length((p - uGlint) / uGlintR) / dmax, 0.0, 1.0) * (GRADIENT_STOPS - 1.0);
+  float k = min(floor(u), GRADIENT_STOPS - 2.0);
+  vec3 a = toSrgb(tonemap(shade(tinted(rampAt(k / (GRADIENT_STOPS - 1.0) * dmax), t), v)));
+  vec3 b = toSrgb(tonemap(shade(tinted(rampAt((k + 1.0) / (GRADIENT_STOPS - 1.0) * dmax), t), v)));
+  return mix(a, b, u - k);
+}
+`;
+
+  // what a channel or joint writes, per pass: coverage a, light v, tint t
+  const OUTPUT = `
+uniform int uPass;          // 0 field, 1 core, 2 channel colours, 3 contours
+uniform float uAlpha;       // contour ring opacity
+out vec4 o;
+void emit(float a, float v, float t) {
+  if (uPass == 0) { o = vec4(v * a, t * a, 0.0, a); return; }
+  if (uPass == 1) { o = vec4(v * a, 0.0, 0.0, a); return; }
+  vec2 w = worldAt(gl_FragCoord.xy);
+  if (uPass == 2) { vec3 c = gradientAt(w, t, v); o = vec4(c * a, a); return; }
+  o = vec4(gradientAt(w, 0.0, 1.0), uAlpha * a);
+}
+`;
+
+  const VS_STRIP = `#version 300 es
+${COMMON}
+in vec2 aPos; in vec2 aNrm; in float aHalfW; in float aSide; in float aS; in float aE; in vec2 aBW;
+uniform float uWidthScale;
+out float vU; out float vH; out float vV; out float vT;
+void main() {
+  float s = pxPerUnit();
+  float h = aHalfW * uWidthScale * s;
+  float ext = h + 1.0;
+  vec2 px = toPx(aPos) + turned(aNrm) * aSide * ext;
+  gl_Position = vec4(px.x / uRes.x * 2.0 - 1.0, 1.0 - px.y / uRes.y * 2.0, 0.0, 1.0);
+  vU = aSide * ext;
+  vH = h;
+  float te = aE * aE * (3.0 - 2.0 * aE);
+  vV = mix(vw(aBW.x), vw(aBW.y), te);
+  vT = tintAt(aS);
+}`;
+  const FS_STRIP = `#version 300 es
+${COMMON}
+${OUTPUT}
+in float vU; in float vH; in float vV; in float vT;
+void main() { emit(clamp(min(2.0 * vH, vH + 0.5 - abs(vU)), 0.0, 1.0), vV, vT); }`;
+
+  const VS_DISC = `#version 300 es
+${COMMON}
+in vec2 aCenter; in vec2 aCorner; in float aR; in float aS; in float aBirth;
+uniform float uWidthScale;
+out vec2 vC; out float vR; out float vV; out float vT;
+void main() {
+  float s = pxPerUnit();
+  float r = aR * uWidthScale * s;
+  vec2 c = toPx(aCenter);
+  vec2 px = c + aCorner * (r + 1.0);
+  gl_Position = vec4(px.x / uRes.x * 2.0 - 1.0, 1.0 - px.y / uRes.y * 2.0, 0.0, 1.0);
+  vC = c; vR = r; vV = vw(aBirth); vT = tintAt(aS);
+}`;
+  const FS_DISC = `#version 300 es
+${COMMON}
+${OUTPUT}
+in vec2 vC; in float vR; in float vV; in float vT;
+void main() {
+  float d = distance(vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y), vC);
+  emit(clamp(min(2.0 * vR, vR + 0.5 - d), 0.0, 1.0), vV, vT);
+}`;
+
+  const VS_QUAD = `#version 300 es
+in vec2 aPos;
+void main() { gl_Position = vec4(aPos, 0.0, 1.0); }`;
+
+  // the light each channel sends into the glow: water x light x coverage
+  const FS_EMIT = `#version 300 es
+${COMMON}
+uniform sampler2D uField;
+uniform sampler2D uCore;
+uniform int uWhich;
+uniform float uEnc;
+out vec4 o;
+void main() {
+  ivec2 ip = ivec2(gl_FragCoord.xy);
+  vec4 f = texelFetch(uField, ip, 0);
+  float t = f.a > 1e-6 ? f.g / f.a : 0.0;
+  vec3 wat = tinted(waterAt(worldAt(gl_FragCoord.xy)), t);
+  float val = uWhich == 0 ? f.r : texelFetch(uCore, ip, 0).r;
+  o = vec4(wat * val * uEnc, 1.0);
+}`;
+
+  const FS_BLUR = `#version 300 es
+precision highp float;
+uniform sampler2D uSrc;
+uniform ivec2 uDir;
+uniform ivec2 uSize;
+uniform float uSigma;
+uniform float uGain;
+out vec4 o;
+void main() {
+  ivec2 p = ivec2(gl_FragCoord.xy);
+  int r = min(int(ceil(4.0 * uSigma)), 60);
+  vec4 acc = vec4(0.0);
+  float ws = 0.0;
+  for (int i = -r; i <= r; i++) {
+    float w = exp(-0.5 * float(i * i) / (uSigma * uSigma));
+    acc += w * texelFetch(uSrc, clamp(p + uDir * i, ivec2(0), uSize - 1), 0);
+    ws += w;
+  }
+  o = acc / ws * uGain;
+}`;
+
+  const FS_DOWN = `#version 300 es
+precision highp float;
+uniform sampler2D uSrc;
+uniform ivec2 uSize;
+out vec4 o;
+void main() {
+  ivec2 p = ivec2(gl_FragCoord.xy) * 2;
+  ivec2 m = uSize - 1;
+  o = 0.25 * (texelFetch(uSrc, min(p, m), 0) + texelFetch(uSrc, min(p + ivec2(1, 0), m), 0) +
+              texelFetch(uSrc, min(p + ivec2(0, 1), m), 0) + texelFetch(uSrc, min(p + ivec2(1, 1), m), 0));
+}`;
+
+  // smooth (cubic B-spline) upsampling of a blurred small level, added in
+  const FS_UP = `#version 300 es
+precision highp float;
+uniform sampler2D uSrc;
+uniform vec2 uSmall;
+uniform float uF;
+uniform float uGain;
+out vec4 o;
+void main() {
+  vec2 st = gl_FragCoord.xy / uF - 0.5;
+  vec2 i = floor(st), f = st - i;
+  vec2 w0 = (1.0 - f) * (1.0 - f) * (1.0 - f) / 6.0;
+  vec2 w1 = (4.0 - 6.0 * f * f + 3.0 * f * f * f) / 6.0;
+  vec2 w2 = (1.0 + 3.0 * f + 3.0 * f * f - 3.0 * f * f * f) / 6.0;
+  vec2 w3 = f * f * f / 6.0;
+  vec2 g0 = w0 + w1, g1 = w2 + w3;
+  vec2 h0 = (i - 1.0 + w1 / g0 + 0.5) / uSmall;
+  vec2 h1 = (i + 1.0 + w3 / g1 + 0.5) / uSmall;
+  vec4 c = g0.y * (g0.x * texture(uSrc, vec2(h0.x, h0.y)) + g1.x * texture(uSrc, vec2(h1.x, h0.y))) +
+           g1.y * (g0.x * texture(uSrc, vec2(h0.x, h1.y)) + g1.x * texture(uSrc, vec2(h1.x, h1.y)));
+  o = c * uGain;
+}`;
+
+  // land, haze and glow (dark), or land stained toward the water (light),
+  // through the SDR tone curve: the base the vector layers are drawn on
+  const FS_BASE = `#version 300 es
+${COMMON}
+uniform sampler2D uGlow;
+uniform sampler2D uField;
+uniform int uMode;
+uniform float uDec;
+uniform int uNL;
+uniform float uLandY[4];
+uniform vec3 uLand[4];
+uniform int uNH;
+uniform vec3 uHaze[4];
+uniform float uHazeR[4];
+out vec4 o;
+vec3 landAt(vec2 w) {
+  vec3 c = uLand[uNL - 1];
+  if (w.y <= uLandY[0]) c = uLand[0];
+  else for (int i = 1; i < 4; i++) {
+    if (i >= uNL) break;
+    if (w.y <= uLandY[i]) { c = mix(uLand[i - 1], uLand[i], (w.y - uLandY[i - 1]) / max(uLandY[i] - uLandY[i - 1], 1e-6)); break; }
+  }
+  for (int i = 0; i < 4; i++) {
+    if (i >= uNH) break;
+    vec2 d = w - uGlint;
+    c += uHaze[i] * exp(-dot(d, d) / (uHazeR[i] * uHazeR[i]));
+  }
+  return c;
+}
+float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+void main() {
+  vec2 w = worldAt(gl_FragCoord.xy);
+  ivec2 ip = ivec2(gl_FragCoord.xy);
+  vec3 land = landAt(w);
+  vec3 base;
+  if (uMode == 0) {
+    base = land + texelFetch(uGlow, ip, 0).rgb * uDec;
+  } else {
+    float g = clamp(texelFetch(uGlow, ip, 0).r, 0.0, 1.0);
+    vec4 f = texelFetch(uField, ip, 0);
+    float t = f.a > 1e-6 ? f.g / f.a : 0.0;
+    base = land * (1.0 - g) + tinted(waterAt(w), t) * g;
+  }
+  float n = hash(gl_FragCoord.xy) + hash(gl_FragCoord.yx + 17.0) - 1.0;   // triangular dither
+  o = vec4(toSrgb(tonemap(base)) + n / 255.0, 1.0);
+}`;
+
+  const FS_LAYER = `#version 300 es
+precision highp float;
+uniform sampler2D uSrc;
+uniform float uOpacity;
+out vec4 o;
+void main() { o = texelFetch(uSrc, ivec2(gl_FragCoord.xy), 0) * uOpacity; }`;
+
+  // ---------------------------------------------------------------- renderer
+  class Renderer {
+    constructor(canvas) {
+      const gl = canvas.getContext("webgl2", { alpha: false, antialias: false, depth: false, stencil: false,
+                                               premultipliedAlpha: false, preserveDrawingBuffer: true });
+      if (!gl) throw new Error("no webgl2");
+      this.gl = gl;
+      this.canvas = canvas;
+      this.floatOk = !!gl.getExtension("EXT_color_buffer_float");
+      this.progs = {
+        strip: this.program(VS_STRIP, FS_STRIP), disc: this.program(VS_DISC, FS_DISC),
+        emit: this.program(VS_QUAD, FS_EMIT), blur: this.program(VS_QUAD, FS_BLUR),
+        down: this.program(VS_QUAD, FS_DOWN), up: this.program(VS_QUAD, FS_UP),
+        base: this.program(VS_QUAD, FS_BASE), layer: this.program(VS_QUAD, FS_LAYER),
+      };
+      this.buildGeometry();
+      this.targets = null;
+    }
+
+    program(vsSrc, fsSrc) {
+      const gl = this.gl;
+      const sh = (type, src) => {
+        const s = gl.createShader(type);
+        gl.shaderSource(s, src);
+        gl.compileShader(s);
+        if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+        return s;
+      };
+      const p = gl.createProgram();
+      gl.attachShader(p, sh(gl.VERTEX_SHADER, vsSrc));
+      gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fsSrc));
+      gl.linkProgram(p);
+      if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+      p.loc = {};
+      const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+      for (let i = 0; i < n; i++) {
+        const name = gl.getActiveUniform(p, i).name;
+        p.loc[name.replace(/\[0\]$/, "")] = gl.getUniformLocation(p, name);
+      }
+      return p;
+    }
+
+    vao(prog, stride, attrs, data, index) {
+      const gl = this.gl;
+      const v = gl.createVertexArray();
+      gl.bindVertexArray(v);
+      const buf = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+      let off = 0;
+      for (const [name, size] of attrs) {
+        const loc = gl.getAttribLocation(prog, name);
+        if (loc >= 0) {
+          gl.enableVertexAttribArray(loc);
+          gl.vertexAttribPointer(loc, size, gl.FLOAT, false, stride * 4, off * 4);
+        }
+        off += size;
+      }
+      if (index) {
+        const ib = gl.createBuffer();
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, index, gl.STATIC_DRAW);
+      }
+      gl.bindVertexArray(null);
+      return v;
+    }
+
+    buildGeometry() {
+      const STRIP = [["aPos", 2], ["aNrm", 2], ["aHalfW", 1], ["aSide", 1], ["aS", 1], ["aE", 1], ["aBW", 2]];
+      // one ribbon per polyline: two vertices per point, offset along the normal
+      const ribbons = (lines) => {
+        const verts = [], idx = [];
+        let base = 0;
+        for (const ln of lines) {
+          const p = ln.p, k = ln.stride, n = p.length / k;
+          for (let i = 0; i < n; i++) {
+            const i0 = Math.max(0, i - 1), i1 = Math.min(n - 1, i + 1);
+            let tx = p[i1 * k] - p[i0 * k], ty = p[i1 * k + 1] - p[i0 * k + 1];
+            const L = Math.hypot(tx, ty) || 1;
+            tx /= L; ty /= L;
+            const half = k === 5 ? 0.5 * p[i * k + 2] : 0.5;
+            const s = k === 5 ? p[i * k + 3] : 0, e = k === 5 ? p[i * k + 4] : 0;
+            for (const side of [-1, 1]) {
+              verts.push(p[i * k], p[i * k + 1], -ty, tx, half, side, s, e, ln.birth || 0, ln.width || 0);
+            }
+          }
+          for (let i = 0; i < n - 1; i++) {
+            const a = base + 2 * i;
+            idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+          }
+          base += 2 * n;
+        }
+        return { verts: new Float32Array(verts), idx: new Uint32Array(idx) };
+      };
+      // channels, thinnest first: brighter channels land on top at the forks
+      const ch = ribbons(DATA.channels.map((c) => ({ p: c.p, stride: 5, birth: c.birth, width: c.width })));
+      this.channels = { vao: this.vao(this.progs.strip, 10, STRIP, ch.verts, ch.idx), count: ch.idx.length };
+      // bank contours, one draw per ring (each ring has its own opacity)
+      this.rings = [];
+      const byRing = {};
+      for (const c of DATA.contours) (byRing[c.k] = byRing[c.k] || []).push({ p: c.p, stride: 2 });
+      for (const k of Object.keys(byRing).map(Number).sort((a, b) => a - b)) {
+        const r = ribbons(byRing[k]);
+        this.rings.push({ k, vao: this.vao(this.progs.strip, 10, STRIP, r.verts, r.idx), count: r.idx.length });
+      }
+      // round joints at the forks, lit like the incoming channel
+      const discs = DATA.discs.slice().sort((a, b) => a.w - b.w);
+      const dv = [], di = [];
+      discs.forEach((d, j) => {
+        for (const [cx, cy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) dv.push(d.x, d.y, cx, cy, 0.5 * d.w, d.s, d.w);
+        const a = 4 * j;
+        di.push(a, a + 1, a + 2, a, a + 2, a + 3);
+      });
+      this.discs = { vao: this.vao(this.progs.disc, 7, [["aCenter", 2], ["aCorner", 2], ["aR", 1], ["aS", 1], ["aBirth", 1]],
+                                   new Float32Array(dv), new Uint32Array(di)), count: di.length };
+      const qv = this.vao(this.progs.base, 2, [["aPos", 2]], new Float32Array([-1, -1, 3, -1, -1, 3]));
+      this.quad = qv;
+    }
+
+    target(w, h, float) {
+      const gl = this.gl;
+      const tex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      if (float && this.floatOk) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, w, h, 0, gl.RGBA, gl.HALF_FLOAT, null);
+      else gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      const fb = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+      return { tex, fb, w, h };
+    }
+
+    resize(w, h, frame) {
+      this.frame = frame;
+      if (this.targets && this.targets.w === w && this.targets.h === h) return;
+      const gl = this.gl;
+      if (this.targets) {
+        for (const t of this.targets.all) { gl.deleteTexture(t.tex); gl.deleteFramebuffer(t.fb); }
+      }
+      this.canvas.width = w;
+      this.canvas.height = h;
+      const all = [];
+      const mk = (ww, hh, f) => { const t = this.target(ww, hh, f); all.push(t); return t; };
+      const T = { w, h, all, field: mk(w, h, true), core: mk(w, h, true), emis: mk(w, h, true),
+                  tmp: mk(w, h, true), glow: mk(w, h, true), layer: mk(w, h, false), levels: [] };
+      // pyramid for wide glows: halves down to a few pixels
+      let lw = w, lh = h;
+      for (let k = 1; k <= 7; k++) {
+        lw = Math.max(1, Math.floor(lw / 2)); lh = Math.max(1, Math.floor(lh / 2));
+        T.levels.push({ src: mk(lw, lh, true), tmp: mk(lw, lh, true), out: mk(lw, lh, true) });
+      }
+      this.targets = T;
+      for (const t of all) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, t.fb);
+        if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE || gl.isContextLost()) {
+          throw new Error("could not allocate " + w + "×" + h);
+        }
+      }
+    }
+
+    setPalette(prog, pal) {
+      const gl = this.gl, L = prog.loc;
+      const u1f = (n, v) => L[n] && gl.uniform1f(L[n], v);
+      const u1i = (n, v) => L[n] && gl.uniform1i(L[n], v);
+      const u2f = (n, a, b) => L[n] && gl.uniform2f(L[n], a, b);
+      u2f("uRes", this.targets.w, this.targets.h);
+      const f = this.frame;
+      u2f("uHalf", f.half[0], f.half[1]);
+      u2f("uCenter", f.center[0], f.center[1]);
+      u1i("uTurn", f.turn);
+      u2f("uGlint", pal.glint[0], pal.glint[1]);
+      u2f("uGlintR", pal.glint_r[0], pal.glint_r[1]);
+      const water = pal.water.slice(0, 8);
+      u1i("uNW", water.length);
+      if (L.uWD) gl.uniform1fv(L.uWD, water.map((s) => s[0]).concat(Array(8 - water.length).fill(0)));
+      if (L.uWC) {
+        const c = [];
+        for (const s of water) { const g = s.length > 2 ? s[2] : 1; c.push(...hexLin(s[1]).map((x) => x * g)); }
+        while (c.length < 24) c.push(0);
+        gl.uniform3fv(L.uWC, c);
+      }
+      u1f("uKnee", pal.knee);
+      u1i("uFade", pal.fade_to ? 1 : 0);
+      if (L.uPaper) gl.uniform3fv(L.uPaper, pal.fade_to ? hexLin(pal.fade_to) : [0, 0, 0]);
+      const st = pal.source_tint;
+      u1i("uTintOn", st ? 1 : 0);
+      if (st) {
+        if (L.uTintC) gl.uniform3fv(L.uTintC, hexLin(st[0]).map((x) => x * st[3]));
+        u2f("uTintS", st[1], st[2]);
+      }
+      u1f("uFloor", pal.width_floor);
+      u1f("uGamma", pal.width_gamma);
+      u1f("uRoot", DATA.root_width);
+      if (L.uNL) {
+        const land = pal.land.slice(0, 4);
+        u1i("uNL", land.length);
+        gl.uniform1fv(L.uLandY, land.map((s) => s[0]).concat(Array(4 - land.length).fill(0)));
+        const c = [];
+        for (const s of land) c.push(...hexLin(s[1]));
+        while (c.length < 12) c.push(0);
+        gl.uniform3fv(L.uLand, c);
+        const haze = pal.haze.slice(0, 4);
+        u1i("uNH", haze.length);
+        const hc = [];
+        for (const h of haze) hc.push(...hexLin(h[0]));
+        while (hc.length < 12) hc.push(0);
+        gl.uniform3fv(L.uHaze, hc);
+        gl.uniform1fv(L.uHazeR, haze.map((h) => h[1]).concat(Array(4 - haze.length).fill(1)));
+      }
+    }
+
+    fullscreen(prog, fb, w, h) {
+      const gl = this.gl;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+      gl.viewport(0, 0, w, h);
+      gl.useProgram(prog);
+      gl.bindVertexArray(this.quad);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    }
+
+    bindTex(prog, name, unit, tex) {
+      const gl = this.gl;
+      gl.activeTexture(gl.TEXTURE0 + unit);
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      if (prog.loc[name]) gl.uniform1i(prog.loc[name], unit);
+    }
+
+    // channels and joints in one pass (field, core or colour)
+    drawRiver(pal, pass, fb, widthScale) {
+      const gl = this.gl, T = this.targets;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+      gl.viewport(0, 0, T.w, T.h);
+      for (const [prog, geo] of [[this.progs.strip, this.channels], [this.progs.disc, this.discs]]) {
+        gl.useProgram(prog);
+        this.setPalette(prog, pal);
+        gl.uniform1i(prog.loc.uPass, pass);
+        gl.uniform1f(prog.loc.uWidthScale, widthScale);
+        gl.bindVertexArray(geo.vao);
+        gl.drawElements(gl.TRIANGLES, geo.count, gl.UNSIGNED_INT, 0);
+      }
+    }
+
+    // Gaussian blur of src (full size) by sigma px, times gain, added into T.glow
+    blurInto(src, sigma, gain) {
+      const gl = this.gl, T = this.targets, P = this.progs;
+      if (sigma <= 0 || gain === 0) return;
+      const pass = (tex, dst, w, h, dir, sg, g, additive) => {
+        gl.useProgram(P.blur);
+        this.bindTex(P.blur, "uSrc", 0, tex);
+        gl.uniform2i(P.blur.loc.uDir, dir[0], dir[1]);
+        gl.uniform2i(P.blur.loc.uSize, w, h);
+        gl.uniform1f(P.blur.loc.uSigma, sg);
+        gl.uniform1f(P.blur.loc.uGain, g);
+        if (additive) { gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE); } else gl.disable(gl.BLEND);
+        this.fullscreen(P.blur, dst.fb, w, h);
+        gl.disable(gl.BLEND);
+      };
+      if (sigma < 12) {
+        pass(src.tex, T.tmp, T.w, T.h, [1, 0], sigma, 1, false);
+        pass(T.tmp.tex, T.glow, T.w, T.h, [0, 1], sigma, gain, true);
+        return;
+      }
+      // as the Python renderer: shrink by 2^k so the remaining blur is ~6 px
+      const k = Math.min(7, Math.floor(Math.log2(sigma / 6)));
+      const f = 2 ** k;
+      let tex = src.tex, w = T.w, h = T.h;
+      for (let i = 0; i < k; i++) {
+        const lv = T.levels[i];
+        gl.useProgram(P.down);
+        this.bindTex(P.down, "uSrc", 0, tex);
+        gl.uniform2i(P.down.loc.uSize, w, h);
+        this.fullscreen(P.down, lv.src.fb, lv.src.w, lv.src.h);
+        tex = lv.src.tex; w = lv.src.w; h = lv.src.h;
+      }
+      const lv = T.levels[k - 1];
+      const sg = Math.sqrt(Math.max(sigma * sigma - (0.5 * f) ** 2, 1)) / f;
+      pass(tex, lv.tmp, w, h, [1, 0], sg, 1, false);
+      pass(lv.tmp.tex, lv.out, w, h, [0, 1], sg, 1, false);
+      gl.useProgram(P.up);
+      this.bindTex(P.up, "uSrc", 0, lv.out.tex);
+      gl.uniform2f(P.up.loc.uSmall, w, h);
+      gl.uniform1f(P.up.loc.uF, T.w / w);
+      gl.uniform1f(P.up.loc.uGain, gain);
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.ONE, gl.ONE);
+      this.fullscreen(P.up, T.glow.fb, T.w, T.h);
+      gl.disable(gl.BLEND);
+    }
+
+    render(pal) {
+      const gl = this.gl, T = this.targets, P = this.progs;
+      const scale = T.h / (2 * this.frame.half[1]);                 // pixels per world unit
+      const enc = this.floatOk ? 1 : 0.25;                       // 8-bit fallback headroom
+      const tintMode = pal.glow_mode === "tint";
+      const clear = (t) => { gl.bindFramebuffer(gl.FRAMEBUFFER, t.fb); gl.viewport(0, 0, t.w, t.h);
+                             gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); };
+      const over = () => { gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); };
+
+      // 1. what the channels cover, their light and tint (as the rasteriser)
+      clear(T.field);
+      over();
+      this.drawRiver(pal, 0, T.field.fb, 1);
+      const [coreFrac, coreBlurs] = pal.core || [0.35, []];
+      if (!tintMode && coreBlurs.length) {
+        clear(T.core);
+        this.drawRiver(pal, 1, T.core.fb, coreFrac);
+      }
+      gl.disable(gl.BLEND);
+
+      // 2. glow: blurred light (dark), or the stain of the ink (light)
+      clear(T.glow);
+      if (tintMode) {
+        for (const [sg, g] of pal.glow) this.blurInto(T.field, sg * scale, g);
+      } else {
+        gl.useProgram(P.emit);
+        this.setPalette(P.emit, pal);
+        this.bindTex(P.emit, "uField", 0, T.field.tex);
+        this.bindTex(P.emit, "uCore", 1, T.core.tex);
+        gl.uniform1f(P.emit.loc.uEnc, enc);
+        gl.uniform1i(P.emit.loc.uWhich, 0);
+        this.fullscreen(P.emit, T.emis.fb, T.w, T.h);
+        for (const [sg, g] of pal.glow) this.blurInto(T.emis, sg * scale, g);
+        if (coreBlurs.length) {
+          gl.useProgram(P.emit);
+          // the blurs above rebound the texture units
+          this.bindTex(P.emit, "uField", 0, T.field.tex);
+          this.bindTex(P.emit, "uCore", 1, T.core.tex);
+          gl.uniform1i(P.emit.loc.uWhich, 1);
+          this.fullscreen(P.emit, T.emis.fb, T.w, T.h);
+          for (const [sg, g] of coreBlurs) this.blurInto(T.emis, sg * scale, g);
+        }
+      }
+
+      // 3. the base, tone-mapped, on the canvas
+      gl.useProgram(P.base);
+      this.setPalette(P.base, pal);
+      this.bindTex(P.base, "uGlow", 0, T.glow.tex);
+      this.bindTex(P.base, "uField", 1, T.field.tex);
+      gl.uniform1i(P.base.loc.uMode, tintMode ? 1 : 0);
+      gl.uniform1f(P.base.loc.uDec, 1 / enc);
+      this.fullscreen(P.base, null, T.w, T.h);
+
+      // 4. bank contours, in the water's colour, fading ring by ring
+      const [, rings, cgain, lw] = pal.contours;
+      gl.useProgram(P.strip);
+      this.setPalette(P.strip, pal);
+      gl.uniform1i(P.strip.loc.uPass, 3);
+      gl.uniform1f(P.strip.loc.uWidthScale, lw);
+      gl.enable(gl.BLEND);
+      gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+      for (const r of this.rings) {
+        const a = cgain * Math.pow(Math.max(0, 1 - (r.k - 0.6) / (rings + 0.5)), 1.5);
+        if (a <= 0) continue;
+        gl.uniform1f(P.strip.loc.uAlpha, a);
+        gl.bindVertexArray(r.vao);
+        gl.drawElements(gl.TRIANGLES, r.count, gl.UNSIGNED_INT, 0);
+      }
+      gl.disable(gl.BLEND);
+
+      // 5. the channels as one layer, then over the base at the channel opacity
+      clear(T.layer);
+      over();
+      this.drawRiver(pal, 2, T.layer.fb, 1);
+      gl.useProgram(P.layer);
+      this.bindTex(P.layer, "uSrc", 0, T.layer.tex);
+      gl.uniform1f(P.layer.loc.uOpacity, pal.channel_opacity);
+      this.fullscreen(P.layer, null, T.w, T.h);
+      gl.disable(gl.BLEND);
+    }
+  }
+
+  // ---------------------------------------------------------------- state
+  // Forest first, as on the showcase page, which opens in it
+  const PRESETS = [...DATA.presets].sort((a, b) => (b.key === "forest") - (a.key === "forest"));
+  // the sizes the wallpapers are offered in, by screen shape (from the build);
+  // each shape is its own window onto the river, framed as build.py frames it
+  const SIZE_GROUPS = DATA.sizes;
+  const SIZES = SIZE_GROUPS.flatMap(([, sizes]) => sizes);
+  const DEFAULT_SIZE = "1920x1080";
+  // the size of this screen in device pixels, when it is one of the sizes
+  // (within 1 %: fractional pixel ratios round a little off)
+  function screenSize() {
+    const r = window.devicePixelRatio || 1, W = screen.width * r, H = screen.height * r;
+    let best = null, off = Infinity;
+    for (const [w, h] of SIZES) {
+      const d = Math.max(Math.abs(w - W) / w, Math.abs(h - H) / h);
+      if (d <= 0.01 && d < off) { best = `${w}x${h}`; off = d; }
+    }
+    return best;
+  }
+  const TEST = /^#test-/.test(location.hash);
+  const state = { key: "forest", saved: null, mode: "dark", scheme: null, base: null, comparing: false,
+                  size: screenSize() || DEFAULT_SIZE, sizePicked: false };
+  let db = null, downloads = null;
+  let savedDocs = [];
+  let leftOff = null;                   // the palette worked on last time, if any
+
+  function presetByKey(k) { return PRESETS.find((p) => p.key === k); }
+  function load(src, key, saved) {
+    state.key = key;
+    state.saved = saved || null;
+    forkStash = { dark: null, light: null };
+    const k = logoScaleOf(src);
+    state.base = { dark: clone(src.dark), light: clone(src.light), logo_scale: k };
+    state.scheme = { dark: clone(src.dark), light: clone(src.light), logo_scale: k };
+  }
+  // the Debian logo's size, for both versions (the program's --logo-scale);
+  // 1 is the size on the published wallpapers
+  function logoScaleOf(src) {
+    const k = src && src.logo_scale;
+    return typeof k === "number" && k > 0 && k <= 4 ? k : 1;
+  }
+  // palettes and sessions saved before the renames: dusk and dawn became dark
+  // and light, Original became Violet and Long fade became Lineage
+  const OLD_KEYS = { current: "violet", "long-fade": "lineage" };
+  function renamed(p) {
+    if (p && !p.dark && p.dusk) { p.dark = p.dusk; delete p.dusk; }
+    if (p && !p.light && p.dawn) { p.light = p.dawn; delete p.dawn; }
+    if (p && OLD_KEYS[p.basedOn]) p.basedOn = OLD_KEYS[p.basedOn];
+    return p;
+  }
+  function pal() { return state.comparing ? state.base[state.mode] : state.scheme[state.mode]; }
+  function edited() { return JSON.stringify(state.scheme) !== JSON.stringify(state.base); }
+  function baseTitle() {
+    if (state.saved) return state.saved.title || state.saved.id;
+    const p = presetByKey(state.key);
+    return p ? p.title : state.key;
+  }
+
+  // ---------------------------------------------------------------- rendering
+  let renderer = null, pending = false;
+  // the window onto the river for a screen, as build.py's view_for: landscapes
+  // wider than the delta slide left (32:9), portraits turn the river downward
+  function frameFor(w, h) {
+    const F = DATA.frame;
+    if (h > w) {
+      const hy = F.portrait_height / 2;
+      return { half: [hy * w / h, hy], center: [0, 0], turn: 1 };
+    }
+    const hy = F.height / 2, hx = hy * w / h;
+    return { half: [hx, hy], center: [Math.min(0, F.delta_reach - hx), 0], turn: 0 };
+  }
+  function channelsInView(f) {
+    const [hx, hy] = f.half, [cx, cy] = f.center;
+    const [x0, x1, y0, y1] = f.turn ? [cy - hy, cy + hy, -cx - hx, -cx + hx] : [cx - hx, cx + hx, cy - hy, cy + hy];
+    return DATA.channels.filter((c) => {
+      for (let i = 0; i < c.p.length; i += 5) {
+        if (c.p[i] > x0 && c.p[i] < x1 && c.p[i + 1] > y0 && c.p[i + 1] < y1) return true;
+      }
+      return false;
+    }).length;
+  }
+  // the river ends somewhere in every frame: water colours past its farthest
+  // channel change nothing at this size (they show on wider screens, or with
+  // a shorter reach), and their rows say so
+  function riverReach() {
+    const p = state.scheme[state.mode], f = frameFor(...state.size.split("x").map(Number));     // the size picked, drawn or not yet
+    const [gx, gy] = p.glint, [rx, ry] = p.glint_r, [hx, hy] = f.half, [cx, cy] = f.center;
+    const [x0, x1, y0, y1] = f.turn ? [cy - hy, cy + hy, -cx - hx, -cx + hx] : [cx - hx, cx + hx, cy - hy, cy + hy];
+    let far = 0;
+    for (const c of DATA.channels) {
+      for (let i = 0; i < c.p.length; i += 5) {
+        const x = c.p[i], y = c.p[i + 1];
+        if (x > x0 && x < x1 && y > y0 && y < y1) far = Math.max(far, Math.hypot((x - gx) / rx, (y - gy) / ry));
+      }
+    }
+    // the channels' own reach: the glow only spreads what they have, and the
+    // contour rings and stain that go a little further are too faint to tell
+    return far;
+  }
+  function markFarStops() {
+    const p = state.scheme[state.mode], far = riverReach();
+    document.querySelectorAll("#controls .stop").forEach((row, i) => {
+      const past = i > 0 && i < p.water.length && p.water[i - 1][0] >= far;
+      row.classList.toggle("far", past);
+      if (past) row.title = `No channel reaches this far at ${state.size.replace("x", " × ")}: ` +
+                            "this colour shows on wider screens, or with a shorter reach.";
+      else if (!row.querySelector("input:disabled")) row.title = "";
+      const where = row.querySelector("span");
+      if (where) where.textContent = row.dataset.where + (past ? " · past the river here" : "");
+    });
+  }
+  // larger screens are drawn at this many pixels and shown scaled: everything
+  // in the picture scales with its height, so it looks the same
+  const MAX_PIXELS = 9.5e6;
+  let drawn = null, inView = DATA.channels.length;
+  function sizeCanvas() {
+    if (drawn === state.size && renderer.targets) return;
+    const [w, h] = state.size.split("x").map(Number);
+    $("stage").style.setProperty("--aspect", `${w} / ${h}`);
+    if (TEST) $("stage").style.width = w + "px";      // one pixel per CSS pixel
+    const k = Math.min(1, Math.sqrt(MAX_PIXELS / (w * h)));
+    const iw = Math.round(w * k), ih = Math.round(h * k), frame = frameFor(w, h);
+    try {
+      renderer.resize(iw, ih, frame);
+    } catch (e) {
+      if (state.size === DEFAULT_SIZE) throw e;
+      status(`This device could not draw at ${iw} × ${ih}; back to 1920 × 1080.`);
+      state.size = DEFAULT_SIZE;
+      $("res").value = DEFAULT_SIZE;
+      renderer.targets = null;
+      sizeCanvas();
+      return;
+    }
+    drawn = state.size;
+    inView = channelsInView(frame);
+    markFarStops();
+    if (k < 1) status(`Previewed at ${iw} × ${ih} and scaled to fit; the full-size wallpaper looks the same, only sharper.`);
+    // the exported lockup sits in a 1080-high frame: bottom left on landscapes,
+    // centred on x = 0 for portraits, so it moves to the middle of the screen
+    // the logo size slider scales it about its anchor: the swirl's left edge
+    // (its centre on phones) at its vertical middle, as --logo-scale does
+    const lh = DATA.frame.logo_height_px, vbw = lh * w / h;
+    $("logo").setAttribute("viewBox", `0 0 ${vbw.toFixed(1)} ${lh}`);
+    logoAt = frame.turn ? [vbw / 2, DATA.logo_portrait_y || 0.935 * lh] : DATA.logo_at || [0.085 * lh, 0.88 * lh];
+    $("logo").innerHTML = `<g id="logo-k">` +
+      (frame.turn ? `<g transform="translate(${(vbw / 2).toFixed(2)} 0)">${DATA.logo_portrait}</g>` : DATA.logo) + `</g>`;
+  }
+  let logoAt = [0, 0];
+  function draw() {
+    pending = false;
+    if (!renderer) return;
+    sizeCanvas();
+    const p = pal();
+    renderer.render(p);
+    const logo = $("logo");
+    logo.style.color = p.logo_colour;
+    logo.style.opacity = p.logo_opacity;
+    const k = logoScaleOf(state.comparing ? state.base : state.scheme), [ax, ay] = logoAt;
+    $("logo-k").setAttribute("transform", k === 1 ? "" : `translate(${ax} ${ay}) scale(${k}) translate(${-ax} ${-ay})`);
+  }
+  // the wallpaper as shown, logo included, as a PNG (Download wallpaper): browsers
+  // name a picture saved from the page canvas.png or a random number
+  const PICTURE = "debian-distributary-theme.png";
+  function pictureBlob() {
+    const view = $("view"), logo = $("logo"), out = document.createElement("canvas");
+    out.width = view.width; out.height = view.height;
+    const g = out.getContext("2d");
+    g.drawImage(view, 0, 0);
+    // the logo, with its colour and opacity written in
+    const svg = logo.cloneNode(true);
+    svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+    svg.setAttribute("width", out.width); svg.setAttribute("height", out.height);
+    svg.setAttribute("style", `color:${logo.style.color};opacity:${logo.style.opacity}`);
+    const url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(svg)], { type: "image/svg+xml" }));
+    return new Promise((resolve) => {
+      const im = new Image();
+      im.onload = im.onerror = () => {
+        if (im.naturalWidth) g.drawImage(im, 0, 0, out.width, out.height);
+        URL.revokeObjectURL(url);
+        out.toBlob(resolve, "image/png");
+      };
+      im.src = url;
+    });
+  }
+  function requestDraw() {
+    if (!pending) { pending = true; requestAnimationFrame(draw); }
+  }
+
+  // ---------------------------------------------------------------- controls
+  // a blur's size in pixels at 1080p (sigmas are in world units)
+  const px1080 = (sigma) => Math.max(1, Math.round(sigma * 1080 / DATA.frame.height));
+  function fmt(v, digits) { return Number(v).toFixed(digits); }
+
+  function el(tag, attrs, kids) {
+    const e = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs || {})) {
+      if (k === "text") e.textContent = v; else if (k === "cls") e.className = v; else e.setAttribute(k, v);
+    }
+    for (const kid of kids || []) if (kid) e.append(kid);
+    return e;
+  }
+  function changed() { requestDraw(); updateOutputs(); }
+
+  function colorRow(id, label, get, set) {
+    const input = el("input", { type: "color", id, value: get() });
+    input.addEventListener("input", () => { set(input.value); changed(); });
+    return el("div", { cls: "row" }, [el("label", { for: id, text: label }), input]);
+  }
+  function rangeRow(id, label, min, max, step, get, set, show) {
+    const input = el("input", { type: "range", id, min, max, step, value: get() });
+    const out = el("output", { for: id, text: show(get()) });
+    input.addEventListener("input", () => { set(parseFloat(input.value)); input.value = get(); out.textContent = show(get()); changed(); });
+    return el("div", { cls: "row range" }, [el("label", { for: id, text: label }), input, out]);
+  }
+  function group(title, note, rows) {
+    return el("section", { cls: "group" }, [el("h2", { text: title }), note ? el("p", { text: note }) : null, ...rows]);
+  }
+
+  // "Accent on the fork" is a shortcut for the water sliders.  Off, it does
+  // what options.even() does in the program: the water near the fork takes
+  // the colour and brightness of the first stop EVEN_FROM out.  On, it puts
+  // back what was there (or the palette's own stops, or a light made from
+  // that stop when there is nothing to put back).
+  const EVEN_FROM = 0.6;
+  let forkStash = { dark: null, light: null };
+  const pivotIndex = (p) => p.water.findIndex((st) => st[0] >= EVEN_FROM);
+  function forkAccented(p) {
+    const i = pivotIndex(p), q = p.water[i];
+    return i > 0 && p.water.slice(0, i).some((st) => st[1].toLowerCase() !== q[1].toLowerCase() || st[2] !== q[2]);
+  }
+  function mixHex(a, b, t) {
+    const ch = (h) => [0, 2, 4].map((k) => parseInt(h.replace("#", "").slice(k, k + 2), 16));
+    const x = ch(a), y = ch(b);
+    return "#" + x.map((v, k) => Math.round(v + (y[k] - v) * t).toString(16).padStart(2, "0")).join("");
+  }
+  function setForkAccent(m, on) {
+    const p = state.scheme[m], i = pivotIndex(p), ink = !!p.fade_to;
+    if (i <= 0) return;
+    const q = p.water[i];
+    if (!on) {
+      forkStash[m] = clone(p.water.slice(0, i));
+      for (let k = 0; k < i; k++) p.water[k] = [p.water[k][0], q[1], q[2]];
+      return;
+    }
+    const b = state.base[m];
+    let near = forkStash[m];
+    if (!near && pivotIndex(b) === i && forkAccented(b)) near = clone(b.water.slice(0, i));
+    if (!near) {
+      // nothing to put back: white light (or the darkest ink) at the fork
+      near = p.water.slice(0, i).map((st) => {
+        const u = 1 - st[0] / q[0];
+        return ink ? [st[0], mixHex(q[1], "#000000", 0.35 * u), q[2]]
+                   : [st[0], mixHex(q[1], "#ffffff", 0.85 * u), round(q[2] + (2.8 - q[2]) * u ** 1.5, 2)];
+      });
+    }
+    near.forEach((st, k) => { p.water[k] = st; });
+    forkStash[m] = null;
+  }
+
+  function buildControls() {
+    const p = state.scheme[state.mode], m = state.mode, box = $("controls");
+    box.textContent = "";
+    const ink = !!p.fade_to;
+    // phones turn the river to run down the screen: the land's top is then its right
+    const portrait = (([w, h]) => h > w)(state.size.split("x").map(Number));
+    const landNames = portrait ? ["Right", "Middle", "Left"] : ["Top", "Middle", "Bottom"];
+    const across = portrait ? "right to left" : "top to bottom";
+    const landRows = p.land.map((s, i) => colorRow(`${m}-land-${i}`, landNames[i] || `Stop ${i + 1}`, () => s[1], (v) => {
+      // thin channels fade toward the paper: they move together while they match
+      if (ink && i === 1 && p.fade_to && p.fade_to.toLowerCase() === s[1].toLowerCase()) {
+        p.fade_to = v;
+        if ($(`${m}-paper`)) $(`${m}-paper`).value = v;
+      }
+      s[1] = v;
+    }));
+    // haze is light added around the accent: on paper it shows as nothing
+    const hazeRows = ink ? [] : p.haze.map((h, i) => colorRow(`${m}-haze-${i}`, i === 0 ? "Haze near the light" : "Haze, wide",
+                                                              () => h[0], (v) => { h[0] = v; }));
+    box.append(group(ink ? "Paper" : "Ground", (ink ? "The paper, " : "The land, ") + across + ".", landRows.concat(hazeRows)));
+
+    const pv = pivotIndex(p), even = pv > 0 && !forkAccented(p);
+    const word = ink ? "ink" : "river";
+    const stops = p.water.map((s, i) => {
+      const id = `${m}-water-${i}`;
+      const copy = even && i < pv;          // with the accent off, these repeat the stop at pv
+      const colour = el("input", { type: "color", id, value: s[1], "aria-label": `${ink ? "Ink" : "River"} colour ${i + 1}` });
+      const range = el("input", { type: "range", min: 0, max: 3.5, step: 0.01, value: s.length > 2 ? s[2] : 1,
+                                  "aria-label": `Brightness of ${word} colour ${i + 1}` });
+      if (copy) colour.disabled = range.disabled = true;
+      const out = el("output", { text: fmt(s.length > 2 ? s[2] : 1, 2) });
+      const follow = () => {
+        if (!(even && i === pv)) return;
+        for (let k = 0; k < pv; k++) {
+          p.water[k] = [p.water[k][0], s[1], s.length > 2 ? s[2] : 1];
+          const row = box.querySelector(`.stop[data-i="${k}"]`);
+          if (!row) continue;
+          row.querySelector("input[type=color]").value = s[1];
+          row.querySelector("input[type=range]").value = p.water[k][2];
+          row.querySelector("output").textContent = fmt(p.water[k][2], 2);
+        }
+      };
+      colour.addEventListener("input", () => { s[1] = colour.value; follow(); changed(); });
+      range.addEventListener("input", () => { s[2] = parseFloat(range.value); out.textContent = fmt(s[2], 2); follow(); changed(); });
+      const where = copy ? `same as ${fmt(p.water[pv][0], 2)} out` : i === 0 ? "at the centre" : `${fmt(s[0], 2)} out`;
+      const row = el("div", { cls: "stop", "data-i": i, "data-where": where },
+                     [colour, el("div", {}, [el("span", { text: where }), range]), out]);
+      if (copy) row.title = "With the accent off, this copies the colour further out and changes with it.";
+      return row;
+    });
+    const river = [...stops];
+    if (ink) river.push(colorRow(`${m}-paper`, "Thin channels fade toward", () => p.fade_to, (v) => { p.fade_to = v; }));
+    box.append(group(ink ? "Ink" : "Water", ink ?
+      "Ink colours by distance from the accent's centre, in units of its reach. Brightness below 1 darkens the ink, above 1 lightens it." :
+      "Colours by distance from the accent's centre, in units of its reach. Brightness multiplies each colour: where " +
+      "that goes past white, ordinary screens fade it toward white, HDR screens show it in full, and it feeds the glow.", river));
+
+    const forkId = `${m}-fork-accent`;
+    const fork = el("input", { type: "checkbox", id: forkId });
+    // a colour from the source that stays solid past the first fork (Lineage's
+    // red) covers it: no accent to turn off there, as in the program
+    const covered = !!p.source_tint && p.source_tint[1] >= DATA.forks.first;
+    fork.checked = forkAccented(p);
+    fork.disabled = pv <= 0 || covered;
+    const forkLabel = el("label", { for: forkId, text: "Accent on the fork" });
+    forkLabel.title = fork.title = covered ? "The colour from the source covers the fork: there is no accent to turn off." :
+      `On: the ${ink ? "ink" : "water"} near the accent's centre has a colour${ink ? "" : " and light"} of its own. ` +
+      "The centre sits on the first fork unless you move it.";
+    fork.addEventListener("change", () => {
+      setForkAccent(m, fork.checked);
+      buildControls(); changed();
+      $(forkId).focus();
+      status(fork.checked ? "The accent is back on the fork." :
+             `No accent on the fork: the ${ink ? "ink" : "water"} near it now matches the stop ${fmt(p.water[pivotIndex(p)][0], 2)} out.`);
+    });
+    const accentRows = [
+      el("div", { cls: "row" }, [forkLabel, fork]),
+      rangeRow(`${m}-gx`, "Position along the river", -0.85, 0.85, 0.005, () => p.glint[0], (v) => { p.glint[0] = v; }, (v) => fmt(v, 3)),
+      rangeRow(`${m}-gy`, "Position across the river", -0.45, 0.45, 0.005, () => p.glint[1], (v) => { p.glint[1] = v; }, (v) => fmt(v, 3)),
+      rangeRow(`${m}-rx`, "Reach along the river", 0.3, 2.5, 0.01, () => p.glint_r[0], (v) => { p.glint_r[0] = v; }, (v) => fmt(v, 2)),
+      rangeRow(`${m}-ry`, "Reach across the river", 0.2, 2.0, 0.01, () => p.glint_r[1], (v) => { p.glint_r[1] = v; }, (v) => fmt(v, 2)),
+    ];
+    // the tone curve's knee; on paper nothing is brighter than it, so only the dark version has it
+    if (!ink) accentRows.push(rangeRow(`${m}-knee`, "Soften highlights above", 0.3, 1.0, 0.01, () => p.knee,
+                                       (v) => { p.knee = v; }, (v) => fmt(v, 2)));
+    box.append(group("Accent", ink ? "Where the ink is deepest, and how far that reaches." :
+                                     "Where the light is, and how far it reaches.", accentRows));
+
+    const glowRows = p.glow.map((g, i) => rangeRow(`${m}-glow-${i}`, `${ink ? "Stain" : "Glow"}, ${px1080(g[0])} px`,
+      0, ink ? 0.4 : 0.6, 0.005, () => g[1], (v) => { g[1] = v; }, (v) => fmt(v, 3)));
+    if (!ink && p.core && p.core[1].length) {
+      p.core[1].forEach((g, i) => glowRows.push(rangeRow(`${m}-core-${i}`, `Core light, ${px1080(g[0])} px`,
+        0, 2.5, 0.01, () => g[1], (v) => { g[1] = v; }, (v) => fmt(v, 2))));
+    }
+    glowRows.push(rangeRow(`${m}-opacity`, "Channel opacity", 0.2, 1, 0.01, () => p.channel_opacity,
+                           (v) => { p.channel_opacity = v; }, (v) => fmt(v, 2)));
+    box.append(group(ink ? "Stain and opacity" : "Glow and opacity",
+      ink ? "Ink bleeds a little into the paper around each channel; sizes at 1080p." :
+            "Light spreading from the channels into the land; sizes at 1080p.",
+      glowRows));
+
+    box.append(group("Thin channels", ink ? "Narrower channels carry less ink." : "Narrower channels carry less light.", [
+      rangeRow(`${m}-floor`, ink ? "Ink in the thinnest channels" : "Light in the thinnest channels", 0, 1, 0.01,
+               () => p.width_floor, (v) => { p.width_floor = v; }, (v) => fmt(v, 2)),
+      rangeRow(`${m}-gamma`, "How fast it fades as channels narrow", 0, 1.5, 0.01, () => p.width_gamma,
+               (v) => { p.width_gamma = v; }, (v) => fmt(v, 2)),
+    ]));
+
+    box.append(group("Contour lines", `The banks, ring by ring, in the ${ink ? "ink's" : "water's"} colour.`, [
+      rangeRow(`${m}-cgain`, "Strength", 0, 0.6, 0.005, () => p.contours[2], (v) => { p.contours[2] = v; }, (v) => fmt(v, 3)),
+      rangeRow(`${m}-clw`, "Line width at 1080p", 0.2, 3, 0.01, () => p.contours[3] * 1080,
+               (v) => { p.contours[3] = v / 1080; }, (v) => fmt(v, 2) + " px"),
+    ]));
+
+    // colour by distance along the river from its source (Lineage's red)
+    const F = DATA.forks;
+    const tintBox = el("div", { style: "display:grid;gap:10px" });
+    const on = el("input", { type: "checkbox", id: `${m}-tint-on` });
+    on.checked = !!p.source_tint;
+    on.addEventListener("change", () => {
+      p.source_tint = on.checked ? (state.base[m].source_tint ? clone(state.base[m].source_tint)
+                                    : [ink ? "#c8104e" : "#e0104f", F.next[0], F.next[0] + 0.7, ink ? 1 : 0.95]) : null;
+      fillTint(); changed();
+    });
+    function fillTint() {
+      tintBox.textContent = "";
+      const st = p.source_tint;
+      if (!st) return;
+      tintBox.append(
+        colorRow(`${m}-tint-c`, "Colour", () => st[0], (v) => { st[0] = v; }),
+        rangeRow(`${m}-tint-g`, "Brightness", 0, 2, 0.01, () => st[3], (v) => { st[3] = v; }, (v) => fmt(v, 2)),
+        rangeRow(`${m}-tint-a`, "Solid until", 1.2, 3.8, 0.005, () => st[1],
+                 (v) => { st[1] = Math.min(v, st[2] - 0.01); }, (v) => fmt(v, 3)),
+        rangeRow(`${m}-tint-b`, "Gone by", 1.3, 4.0, 0.005, () => st[2],
+                 (v) => { st[2] = Math.max(v, st[1] + 0.01); }, (v) => fmt(v, 3)),
+        el("p", { style: "color:var(--muted);font-size:13.5px", text: `For reference: the first fork is ` +
+                  `${fmt(F.first, 2)} from the source, the next forks ${fmt(F.next[0], 2)}–${fmt(F.next[1], 2)}.` }));
+    }
+    fillTint();
+    box.append(group("Colour along the river", "Measured along the water from its source, so it lands on the same channels on every screen shape.", [
+      el("div", { cls: "row" }, [el("label", { for: `${m}-tint-on`, text: "Colour the river from its source" }), on]), tintBox]));
+
+    box.append(group("Logo", "The size is shared by both versions; 1× is the size on the published wallpapers.", [
+      rangeRow("logo-size", "Size", 0.5, 2.5, 0.05, () => logoScaleOf(state.scheme),
+               (v) => { state.scheme.logo_scale = v; }, (v) => `${fmt(v, 2)}×`),
+      colorRow(`${m}-logo`, "Colour", () => p.logo_colour, (v) => { p.logo_colour = v; }),
+      rangeRow(`${m}-logo-op`, "Opacity", 0, 1, 0.01, () => p.logo_opacity, (v) => { p.logo_opacity = v; }, (v) => fmt(v, 2)),
+    ]));
+  }
+
+  // ---------------------------------------------------------------- presets and output
+  function swatch(scheme) {
+    const dark = scheme.dark, light = scheme.light;
+    return `linear-gradient(90deg, ${dark.land[1][1]} 0 30%, ${dark.water[0][1]} 30% 45%, ${dark.water[3][1]} 45% 60%, ` +
+           `${light.land[1][1]} 60% 80%, ${light.water[1][1]} 80% 100%)`;
+  }
+  // a palette's tile: the showcase's thumbnail of it, in the version being
+  // edited, over its colours (which show alone if the picture is not built)
+  function chip(label, scheme, pressed, onClick, thumb) {
+    const pic = el("span", { cls: "sw", style: `background:${swatch(scheme)}` });
+    if (thumb) {
+      const img = el("img", { src: thumb, alt: "", width: 320, height: 180 });
+      img.addEventListener("error", () => img.remove());
+      pic.append(img);
+    }
+    const b = el("button", { type: "button", cls: "chip", "aria-pressed": String(pressed) }, [pic, el("span", { text: label })]);
+    b.addEventListener("click", onClick);
+    return b;
+  }
+  function buildPresets() {
+    const box = $("presets");
+    box.textContent = "";
+    for (const p of PRESETS) {
+      box.append(chip(p.title, p, !state.saved && state.key === p.key, () => { choose(p, p.key, null); },
+                      `../schemes/thumbs/${p.key}-${state.mode}.jpg`));
+    }
+    const sbox = $("saved");
+    sbox.textContent = "";
+    $("saved-wrap").classList.toggle("hidden", !savedDocs.length);
+    for (const s of savedDocs) {
+      sbox.append(chip(s.title || s.id, s, !!state.saved && state.saved.id === s.id, () => { choose(s, s.basedOn || "saved", s); }));
+    }
+    if (leftOff) box.append(chip("Where you left off", leftOff.scheme, false, () => {
+      forget();
+      state.key = leftOff.key; state.saved = leftOff.saved; forkStash = { dark: null, light: null };
+      state.base = clone(leftOff.base); state.scheme = clone(leftOff.scheme);
+      buildPresets(); buildControls(); changed();
+      status("Back where you left off.");
+    }));
+    $("delete").classList.toggle("hidden", !(db && state.saved));
+  }
+  function choose(src, key, saved) {
+    forget();
+    load(src, key, saved);
+    if (saved) $("save-name").value = saved.title || saved.id;
+    buildPresets();
+    buildControls();
+    changed();
+  }
+
+  function exportJSON() {
+    const name = slug($("save-name").value) || slug(baseTitle()) + (edited() ? "-edited" : "");
+    const title = $("save-name").value.trim() || baseTitle() + (edited() ? " (edited)" : "");
+    return { name, title, seed: DATA.seed, basedOn: state.key, logo_scale: logoScaleOf(state.scheme),
+             dark: state.scheme.dark, light: state.scheme.light };
+  }
+  // the commands that build this palette: the file Download saves, the size
+  // picked above, and the folder build.py --palette names after it
+  function buildSteps(data) {
+    const file = `~/Downloads/distributary-${data.name || "palette"}.json`;
+    // the names of the colours and their even versions are taken (build.py's _read_palette)
+    const taken = new Set(PRESETS.flatMap((p) => [p.key, `${p.key}-even`]));
+    const dir = !data.name ? "palette-unnamed" : taken.has(data.name) ? `palette-${data.name}` : data.name;
+    $("build").textContent = [
+      "sudo apt install python3-numpy python3-scipy python3-cairo \\",
+      "    python3-gi gir1.2-rsvg-2.0 python3-pil python3-contourpy \\",
+      "    python3-fonttools fonts-lato",
+      "git clone https://salsa.debian.org/samueloph/distributary.git",
+      "# or: git clone https://github.com/samueloph/distributary.git",
+      "cd distributary",
+      `./build.py --palette ${file} svg`,
+      `SIZES=${state.size} ./build.py --palette ${file} raster`].join("\n");
+    const note = $("build-note");
+    note.textContent = "";
+    note.append(el("code", { text: "svg" }), " makes the dark and light wallpapers as SVGs in under a minute, and ",
+                el("code", { text: "raster" }), ` a PNG of each at ${state.size.replace("x", " × ")}, in `,
+                el("code", { text: `build/schemes/${dir}/` }), ". ", el("code", { text: "--draft all" }),
+                " instead builds the whole theme up to 4K (10–15 minutes; its HDR files also need libavif-bin, libjxl-tools ",
+                "and python3-openimageio). For another river, add ", el("code", { text: "--seed 7" }), " (or any other number); it lands in ",
+                el("code", { text: `build/schemes/${dir}/seed7/` }), ".");
+  }
+  function updateOutputs() {
+    markFarStops();
+    $("reset").title = `Both versions back to ${baseTitle()}`;
+    const data = exportJSON();
+    $("json").textContent = JSON.stringify(data, null, 2);
+    buildSteps(data);
+    const t = renderer && renderer.targets;
+    $("facts").textContent = `seed ${DATA.seed} · ${inView} channels in view` +
+                             (t ? ` · ${state.size.replace("x", " × ")}` : "") + (edited() ? " · edited" : "");
+    if (!TEST) {
+      try { localStorage.setItem("distributary-editor", JSON.stringify(
+        { key: state.key, mode: state.mode, scheme: state.scheme, base: state.base, saved: state.saved,
+          size: state.sizePicked ? state.size : null })); } catch (e) {}
+    }
+  }
+  function status(msg) { $("status").textContent = msg; }
+
+  // ---------------------------------------------------------------- randomize
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  const round = (v, n) => Math.round(v * 10 ** n) / 10 ** n;
+  const snap = (v, step) => +(Math.round(v / step) * step).toFixed(6);       // onto a slider's steps
+  // OKLCH to sRGB hex, pulling chroma in until the colour fits the gamut
+  function oklch(L, C, h) {
+    const enc = (x) => (x <= 0.0031308 ? 12.92 * x : 1.055 * Math.pow(x, 1 / 2.4) - 0.055);
+    for (let c = C; ; c *= 0.92) {
+      const a = c * Math.cos(h * Math.PI / 180), b = c * Math.sin(h * Math.PI / 180);
+      const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3;
+      const m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3;
+      const q = (L - 0.0894841775 * a - 1.2914855480 * b) ** 3;
+      const rgb = [4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * q,
+                   -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * q,
+                   -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * q];
+      if (c < 0.002 || rgb.every((x) => x >= -0.001 && x <= 1.001)) {
+        return "#" + rgb.map((x) => Math.round(enc(Math.min(1, Math.max(0, x))) * 255).toString(16).padStart(2, "0")).join("");
+      }
+    }
+  }
+  function randomColours() {
+    const dark = state.scheme.dark, light = state.scheme.light;
+    // the accent stays as it was in each version: off stays off
+    const off = ["dark", "light"].filter((m) => pivotIndex(state.scheme[m]) > 0 && !forkAccented(state.scheme[m]));
+    const gh = rnd(0, 360), lh = rnd(0, 360), drift = rnd(-70, 70), gC = rnd(0.012, 0.06);
+    // dark: dark ground; water near white at the light, taking on colour as it spreads
+    dark.land = dark.land.map((st, i) => [st[0], oklch(0.15 + 0.022 * i, gC, gh)]);
+    dark.haze = dark.haze.map((hz, i) => [oklch(i === 0 ? 0.23 : 0.2, gC * (i === 0 ? 0.6 : 1), gh), hz[1]]);
+    const peak = rnd(0.11, 0.19);
+    dark.water = dark.water.map((st, i, all) => {
+      const t = i / (all.length - 1);
+      return [st[0], oklch(0.975 - 0.5 * Math.pow(t, 0.8), 0.015 + peak * Math.min(1, 2.4 * t), lh + drift * t), st[2]];
+    });
+    // light: tinted paper, deep ink at the fork, lighter and cooler outward
+    const ph = Math.random() < 0.5 ? gh : lh, pC = rnd(0.004, 0.022);
+    light.land = light.land.map((st, i) => [st[0], oklch(0.968 - 0.016 * i, pC, ph)]);
+    if (light.fade_to) light.fade_to = light.land[1][1];
+    const inkC = rnd(0.09, 0.16);
+    light.water = light.water.map((st, i, all) => {
+      const t = i / (all.length - 1);
+      return [st[0], oklch(0.36 + 0.34 * t, inkC * (1 - 0.55 * t), lh + drift * t), st.length > 2 ? st[2] : 1];
+    });
+    light.logo_colour = oklch(0.28, 0.03, ph);
+    const th = rnd(0, 360);
+    if (dark.source_tint) dark.source_tint[0] = oklch(0.6, 0.2, th);
+    if (light.source_tint) light.source_tint[0] = oklch(0.5, 0.18, th);
+    for (const m of off) setForkAccent(m, false);
+  }
+  function randomParams() {
+    const b = state.base;
+    const gx = snap(rnd(-0.55, 0.15), 0.005), gy = snap(rnd(-0.15, 0.15), 0.005);
+    const rx = round(rnd(0.6, 1.6), 2), ry = round(rnd(0.4, 1.1), 2);
+    const solid = snap(rnd(1.8, 2.6), 0.005), gone = snap(solid + rnd(0.15, 1.0), 0.005);
+    for (const m of ["dark", "light"]) {
+      const p = state.scheme[m], ink = !!p.fade_to;
+      p.glint = [gx, gy];
+      p.glint_r = [rx, ry];
+      p.knee = ink ? p.knee : round(rnd(0.5, 0.85), 2);
+      p.glow = b[m].glow.map(([sg, g]) => [sg, snap(g * rnd(0.4, 1.8), 0.005)]);
+      if (p.core && b[m].core) p.core = [p.core[0], b[m].core[1].map(([sg, g]) => [sg, round(g * rnd(0.5, 1.6), 2)])];
+      p.channel_opacity = round(ink ? rnd(0.75, 1) : rnd(0.55, 0.95), 2);
+      p.width_floor = round(ink ? rnd(0.2, 0.6) : rnd(0.25, 0.7), 2);
+      p.width_gamma = round(ink ? rnd(0.3, 0.9) : rnd(0.15, 0.8), 2);
+      p.contours = [p.contours[0], p.contours[1], snap(rnd(0.05, 0.35), 0.005), round(rnd(0.5, 1.8), 2) / 1080];
+      // the colour from the source keeps its colour, brightness and whether it
+      // is there at all: only where it fades moves
+      if (p.source_tint) p.source_tint = [p.source_tint[0], solid, gone, p.source_tint[3]];
+    }
+  }
+  // the palettes from before the last few randomizes, to go back to; a new
+  // starting point (a palette picked, or Reset) starts afresh
+  const PREVIOUS = 5;
+  let previous = [];
+  function remember() {
+    previous.push({ scheme: clone(state.scheme), stash: clone(forkStash) });
+    if (previous.length > PREVIOUS) previous.shift();
+    $("rand-back").disabled = false;
+  }
+  function forget() { previous = []; $("rand-back").disabled = true; }
+  function rolled(msg) { buildControls(); changed(); status(msg); }
+  $("rand-all").addEventListener("click", () => {
+    remember(); forkStash = { dark: null, light: null }; randomColours(); randomParams();
+    rolled("New colours and parameters: a variation of your own.");
+  });
+  $("rand-colours").addEventListener("click", () => {
+    remember(); forkStash = { dark: null, light: null }; randomColours();
+    rolled("New colours; the accent's place and reach, and the glow, are as they were.");
+  });
+  $("rand-params").addEventListener("click", () => {
+    remember(); randomParams();
+    rolled("A new place and reach for the accent, and new glow, channel and contour settings; the colours are as they were.");
+  });
+  $("rand-back").addEventListener("click", () => {
+    const back = previous.pop();
+    if (!back) return;
+    state.scheme = back.scheme; forkStash = back.stash;
+    $("rand-back").disabled = !previous.length;
+    rolled(previous.length ? `Back one step; you can go back ${previous.length} more.` : "Back to the palette before you randomized.");
+  });
+
+  // sizes
+  for (const [label, sizes] of SIZE_GROUPS) {
+    const g = el("optgroup", { label });
+    for (const [w, h] of sizes) g.append(el("option", { value: `${w}x${h}`, text: `${w} × ${h}` }));
+    $("res").append(g);
+  }
+  $("res").addEventListener("change", () => {
+    const portrait = (size) => (([w, h]) => h > w)(size.split("x").map(Number));
+    const flip = portrait($("res").value) !== portrait(state.size);
+    state.size = $("res").value; state.sizePicked = true; status("");
+    if (flip) buildControls();          // the ground's labels follow the screen
+    changed();
+  });
+
+  // ---------------------------------------------------------------- wiring
+  function setMode(m) {
+    state.mode = m;
+    for (const b of document.querySelectorAll("[data-mode]")) b.setAttribute("aria-pressed", String(b.dataset.mode === m));
+    buildPresets();                     // their pictures follow dark or light
+    buildControls();
+    changed();
+  }
+  for (const b of document.querySelectorAll("[data-mode]")) b.addEventListener("click", () => setMode(b.dataset.mode));
+
+  const cmp = $("compare");
+  const startCmp = () => { state.comparing = true; draw(); };
+  const endCmp = () => { if (state.comparing) { state.comparing = false; draw(); } };
+  cmp.addEventListener("pointerdown", startCmp);
+  cmp.addEventListener("pointerup", endCmp);
+  cmp.addEventListener("pointerleave", endCmp);
+  cmp.addEventListener("keydown", (e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); startCmp(); } });
+  cmp.addEventListener("keyup", endCmp);
+  $("reset").addEventListener("click", () => {
+    forget();
+    state.scheme = clone(state.base);
+    forkStash = { dark: null, light: null };
+    buildControls();
+    changed();
+    status("Back to " + baseTitle() + ".");
+  });
+
+  // to Use it, without "#use-it" in the address (a hash there names a palette to open)
+  $("to-use-it").addEventListener("click", (e) => {
+    e.preventDefault();
+    // what stays pinned at the top (the picture, or on phones the picture alone)
+    // covers the page under it, unless it is beside it (the wide layout)
+    const target = $("use-it"), pinned = getComputedStyle($("stage")).position === "sticky" ? $("stage") : $("stage").parentElement;
+    const p = pinned.getBoundingClientRect(), t = target.getBoundingClientRect();
+    const over = p.left < t.right && t.left < p.right ? p.height : 0;
+    window.scrollTo({ top: t.top + scrollY - over - 8 });
+  });
+  $("save-wallpaper").addEventListener("click", async () => {
+    const btn = $("save-wallpaper");
+    btn.disabled = true;
+    status("Making the wallpaper…");
+    const blob = await pictureBlob();
+    btn.disabled = false;
+    if (!blob) { status("This browser could not make the wallpaper."); return; }
+    const a = el("a", { href: URL.createObjectURL(blob), download: PICTURE });
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    const v = $("view"), [w] = state.size.split("x").map(Number);
+    status(v.width < w ? `Downloaded ${PICTURE} at ${v.width} × ${v.height}, the largest the editor draws; the program ` +
+                         `on your computer makes the full ${state.size.replace("x", " × ")}.` : `Downloaded ${PICTURE}, ${v.width} × ${v.height}.`);
+  });
+  $("copy").addEventListener("click", () => {
+    const text = JSON.stringify(exportJSON(), null, 2);
+    const fallback = () => {
+      const pre = $("json");
+      pre.parentElement.open = true;
+      const r = document.createRange();
+      r.selectNodeContents(pre);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(r);
+      status("Selected the JSON below; copy it with your keyboard.");
+    };
+    try {
+      navigator.clipboard.writeText(text).then(() => status("Copied the palette as JSON."), fallback);
+    } catch (e) { fallback(); }
+  });
+  $("download").addEventListener("click", () => {
+    const data = exportJSON();
+    const filename = `distributary-${data.name || "palette"}.json`, text = JSON.stringify(data, null, 2) + "\n";
+    if (downloads) {            // inside claude.ai, through its downloads capability
+      downloads.save({ filename, data: text })
+        .then(() => status("Downloaded."), (e) => status(e && e.code === "declined" ? "Download cancelled." : "Could not download here."));
+      return;
+    }
+    const a = el("a", { href: URL.createObjectURL(new Blob([text], { type: "application/json" })), download: filename });
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    status("Downloaded " + filename + ".");
+  });
+  $("save").addEventListener("click", () => {
+    const data = exportJSON();
+    if (!slug($("save-name").value)) { status("Give the palette a name first."); $("save-name").focus(); return; }
+    const body = { title: data.title, name: data.name, basedOn: state.saved ? state.saved.basedOn || state.key : state.key,
+                   seed: data.seed, savedAt: new Date().toISOString(), logo_scale: data.logo_scale,
+                   dark: data.dark, light: data.light };
+    const btn = $("save");
+    btn.disabled = true;
+    db.doc("palettes/" + data.name).set(body).then(() => {
+      state.saved = Object.assign({ id: data.name }, body);
+      state.base = clone(state.scheme);
+      buildPresets();
+      updateOutputs();
+      status(`Saved as “${data.title}”. Claude can build it from here: ask for the “${data.name}” palette.`);
+    }, (e) => {
+      status(e && e.code === "invalid_argument" ? "Only people who can edit this page can save palettes here."
+             : e && e.code === "quota_exceeded" ? "The page's palette store is full; delete a saved palette first."
+             : "Could not save right now; try again in a moment.");
+    }).finally(() => { btn.disabled = false; });
+  });
+  let deleteArmed = false;
+  $("delete").addEventListener("click", () => {
+    if (!state.saved) return;
+    if (!deleteArmed) {
+      deleteArmed = true;
+      $("delete").textContent = "Click again to delete";
+      setTimeout(() => { deleteArmed = false; $("delete").textContent = "Delete saved"; }, 4000);
+      return;
+    }
+    deleteArmed = false;
+    $("delete").textContent = "Delete saved";
+    const id = state.saved.id;
+    db.doc("palettes/" + id).delete().then(() => {
+      status(`Deleted “${id}”.`);
+      state.saved = null;
+      buildPresets();
+    }, () => status("Could not delete it."));
+  });
+  $("save-name").addEventListener("input", () => { updateOutputs(); });
+
+  // ---------------------------------------------------------------- start
+  $("seed").textContent = DATA.seed;
+  const sizeWant = /-(\d+)x(\d+)$/.exec(location.hash);
+  const want = location.hash.replace(/^#(test-)?/, "").replace(/-\d+x\d+$/, "");
+  const wantMode = /-(dark|light)$/.exec(want);
+  const wantKey = want.replace(/-(dark|light)$/, "");
+  let restored = false;
+  if (!TEST && !want) {
+    try {
+      const s = JSON.parse(localStorage.getItem("distributary-editor") || "null");
+      // only a palette with every field the presets have (older visits may lack some)
+      const fields = Object.keys(PRESETS[0].dark).filter((k) => k !== "text_colour");
+      const whole = (p) => p && fields.every((k) => k in p);
+      if (s && s.scheme && s.base) {
+        renamed(s.scheme); renamed(s.base); s.key = OLD_KEYS[s.key] || s.key;
+        s.scheme.logo_scale = logoScaleOf(s.scheme); s.base.logo_scale = logoScaleOf(s.base);   // older visits had none
+      }
+      // the version and a size picked on an earlier visit (otherwise this screen's)
+      if (s && (s.mode === "light" || s.mode === "dawn")) state.mode = "light";
+      if (s && SIZES.some(([w, h]) => `${w}x${h}` === s.size)) { state.size = s.size; state.sizePicked = true; }
+      // the editor lands on Forest; a palette worked on last time waits in a
+      // "Where you left off" tile, kept until another one is worked on
+      const fine = (l) => l && l.scheme && l.base && ["dark", "light"].every((m) => whole(l.scheme[m]) && whole(l.base[m]));
+      const worked = s && s.scheme && s.base && (s.saved || JSON.stringify(s.scheme) !== JSON.stringify(s.base));
+      if (worked && fine(s)) {
+        leftOff = { key: s.key, base: s.base, scheme: s.scheme, saved: s.saved || null };
+        localStorage.setItem("distributary-editor-left-off", JSON.stringify(leftOff));
+      } else {
+        const l = JSON.parse(localStorage.getItem("distributary-editor-left-off") || "null");
+        if (l) { renamed(l.scheme); renamed(l.base); l.scheme.logo_scale = logoScaleOf(l.scheme); l.base.logo_scale = logoScaleOf(l.base); }
+        if (fine(l)) leftOff = l;
+      }
+    } catch (e) {}
+  }
+  if (!restored) {
+    const p = presetByKey(wantKey) || PRESETS[0];
+    load(p, p.key, null);
+    if (wantMode) state.mode = wantMode[1];
+    if (sizeWant) { state.size = `${sizeWant[1]}x${sizeWant[2]}`; state.sizePicked = true; }
+  }
+  if (TEST) document.body.classList.add("test");
+  $("res").value = state.size;
+  for (const b of document.querySelectorAll("[data-mode]")) b.setAttribute("aria-pressed", String(b.dataset.mode === state.mode));
+  try {
+    renderer = new Renderer($("view"));
+  } catch (e) {
+    $("nogl").classList.remove("hidden");
+    $("nogl").textContent = String(e.message || e).startsWith("no webgl2")
+      ? "This editor draws with WebGL 2, which this browser does not provide."
+      : "The editor could not start its renderer: " + (e.message || e);
+  }
+  buildPresets();
+  buildControls();
+  if (renderer) draw();
+  updateOutputs();
+  if (!TEST) {
+    new ResizeObserver(() => requestDraw()).observe($("stage"));
+    // saving and downloading light up where the page's host provides them
+    const use = window.claude && window.claude.use ? (n) => window.claude.use(n).catch(() => null) : () => Promise.resolve(null);
+    use("downloads").then((d) => { downloads = d; });
+    use("db").then((d) => {
+      db = d;
+      $("save").classList.toggle("hidden", !d);
+      if (!d) return;
+      d.collection("palettes").orderBy("savedAt", "desc").limit(100).onSnapshot((snap) => {
+        savedDocs = snap.docs.map((doc) => renamed(Object.assign({ id: doc.id }, doc.data())))
+          .filter((s) => s.dark && s.light);
+        buildPresets();
+      }, () => {});
+    });
+  }
+})();
+</script>
+</body>
+</html>
