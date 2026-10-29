@@ -323,10 +323,10 @@
       <figure><img data-img="mock-grub.jpg" src="img/mock-grub.jpg" width="1920" height="1080" loading="lazy" alt="GRUB boot menu over a darkened copy of the dark wallpaper."><figcaption><b>GRUB.</b> Darkened toward the menu so the white text stays readable.</figcaption></figure>
       <figure>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-          <img data-img="mock-installer.png" src="img/mock-installer.png" width="1600" height="1200" loading="lazy" alt="Debian installer language screen with the light Distributary banner.">
-          <img data-img="mock-installer-dark.png" src="img/mock-installer-dark.png" width="1600" height="1200" loading="lazy" alt="The same screen in the installer's dark theme, with the dark banner.">
+          <img data-img="mock-installer.png" src="img/mock-installer.png" width="1600" height="1200" loading="lazy" alt="Debian installer language screen in its light theme, with the Distributary banner.">
+          <img data-img="mock-installer-dark.png" src="img/mock-installer-dark.png" width="1600" height="1200" loading="lazy" alt="The same screen in the installer's dark theme, with the same banner.">
         </div>
-        <figcaption><b>Installer.</b> The 800×75 banner in light and dark, plus a 640×480 boot menu splash.</figcaption></figure>
+        <figcaption><b>Installer.</b> One 800×75 banner for both of its themes, dark so that the white label the installer writes on it stays readable, plus a 640×480 boot menu splash.</figcaption></figure>
     </div>
   </section>
 
@@ -416,7 +416,7 @@
         byte-identical files. <code>make check</code> also renders the SVGs in four renderers and compares them.</p></div>
     </div>
     <h3 style="font:italic 300 clamp(26px,3.2vw,36px)/1.15 var(--display);margin-top:28px">Fork your own wallpaper</h3>
-    <p style="max-width:64ch">In your browser, the <a href="editor/index.html?v=80865e578f">palette editor</a> recolours the river
+    <p style="max-width:64ch">In your browser, the <a href="editor/index.html?v=d3bacc32c0">palette editor</a> recolours the river
       live or randomizes a variation of your own, and gives you the wallpaper as a PNG and the palette as JSON. To
       build the whole theme, clone the program and change <code>design.py</code>, or hand it that JSON.</p>
     <p><a href="https://salsa.debian.org/samueloph/distributary">salsa.debian.org/samueloph/distributary</a>
@@ -448,7 +448,7 @@ SIZES=1920x1080 ./build.py raster  # and PNGs, dark and light, at your screen's 
           <tr><td>Login</td><td><code>login/</code></td><td>With and without the lockup</td></tr>
           <tr><td>GRUB</td><td><code>grub/</code></td><td>16:9 and 4:3</td></tr>
           <tr><td>Boot splash</td><td><code>plymouth/</code></td><td>Script theme, 20 growth frames, passphrase prompt, 1.5&nbsp;MB</td></tr>
-          <tr><td>Installer</td><td><code>debian-installer/</code></td><td>800×75 banner in light and dark, 640×480 boot splash</td></tr>
+          <tr><td>Installer</td><td><code>debian-installer/</code></td><td>800×75 banner for both installer themes, 640×480 boot splash; SVG, as the installer builds its PNGs from them</td></tr>
           <tr><td>Banners</td><td><code>banners/</code></td><td>Website and wiki, with a “14 · FORKY” descriptor</td></tr>
           <tr><td>High resolution</td><td><code>wallpapers/</code></td><td>PNG up to 7680×4320, ultrawide and phone</td></tr>
           <tr><td>HDR</td><td><code>hdr/</code></td><td>Gain-map AVIF, PQ AVIF and JPEG XL, 16-bit PNG, OpenEXR</td></tr>
@@ -466,7 +466,7 @@ SIZES=1920x1080 ./build.py raster  # and PNGs, dark and light, at your screen's 
     <p class="muted" style="max-width:64ch">Without the accent on the fork, the water keeps one colour from the source
       to the first forks, and nothing is brighter than white. Colours that follow the river, like Lineage's red, are
       measured along the water from its source, so they land on the same channels on every screen shape.</p>
-    <p style="max-width:64ch">Or <a href="editor/index.html?v=80865e578f">fork your own wallpaper</a> in the palette editor: start
+    <p style="max-width:64ch">Or <a href="editor/index.html?v=d3bacc32c0">fork your own wallpaper</a> in the palette editor: start
       from any colour here, change anything, or randomize.</p>
     <div class="gallery" id="gallery"></div>
     <noscript><p class="muted">The colour previews need JavaScript.</p></noscript>
@@ -486,7 +486,7 @@ SIZES=1920x1080 ./build.py raster  # and PNGs, dark and light, at your screen's 
   </footer>
 </main>
 
-<script src="schemes/index.js?v=80865e578f"></script>
+<script src="schemes/index.js?v=d3bacc32c0"></script>
 <script>
   (function () {
     var body = document.body;
@@ -623,7 +623,7 @@ SIZES=1920x1080 ./build.py raster  # and PNGs, dark and light, at your screen's 
     // the palette editor, as one more choice among the colours
     var own = document.createElement("a");
     own.className = "own";
-    own.href = "editor/index.html?v=80865e578f";
+    own.href = "editor/index.html?v=d3bacc32c0";
     own.setAttribute("aria-label", "Fork your own wallpaper in the palette editor, or randomize one");
     own.title = "Fork your own wallpaper in the palette editor, or randomize one";
     // sliders and a die: set the colours, or roll them
